@@ -1,0 +1,852 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  Banknote,
+  CreditCard,
+  Landmark,
+  Plus,
+  Receipt,
+  Save,
+  Send,
+  Trash2,
+  Wallet,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import {
+  addDraft,
+  addInvoice,
+  calcTotals,
+  clearDraft,
+  CURRENCY_SYMBOL,
+  formatMoney,
+  getPendingInvoices,
+  loadDraft,
+  nextNumber,
+  PAYMENT_LABEL,
+  peekNextNumber,
+  removeDraft,
+  saveDraft,
+  settleInvoice,
+  type Currency,
+  type Invoice,
+  type LineItem,
+  type PaymentMethod,
+} from "@/lib/invoices";
+import { BUSINESS } from "@/lib/business";
+import { downloadInvoicePdf } from "@/lib/pdf";
+import { cn } from "@/lib/utils";
+
+export const Route = createFileRoute("/nueva")({
+  component: NuevaFactura,
+  head: () => ({
+    meta: [
+      { title: "Nueva factura" },
+      { name: "description", content: "Generá una nueva factura o recibo profesional." },
+    ],
+  }),
+});
+
+type FormState = {
+  draftId?: string;
+  draftNumber?: string;
+  draftCreatedAt?: string;
+  settleInvoiceId?: string;
+  currency: Currency;
+  paymentMethod: PaymentMethod;
+  issueDate: string;
+  deliveryDate: string;
+  notes: string;
+  deposit: number;
+  client: Invoice["client"];
+  items: LineItem[];
+};
+
+const emptyItem = (): LineItem => ({
+  id: crypto.randomUUID(),
+  quantity: 0,
+  description: "",
+  unitPrice: 0,
+});
+
+const initial: FormState = {
+  draftId: undefined,
+  draftNumber: undefined,
+  draftCreatedAt: undefined,
+  settleInvoiceId: undefined,
+  currency: "ARS",
+  paymentMethod: "transferencia",
+  issueDate: new Date().toISOString().slice(0, 10),
+  deliveryDate: "",
+  notes: "",
+  deposit: 0,
+  client: { name: "", phone: "", cuit: "", address: "", zip: "", email: "" },
+  items: [emptyItem()],
+};
+
+function NuevaFactura() {
+  const navigate = useNavigate();
+  const [form, setForm] = useState<FormState>(initial);
+  const [generatedInvoice, setGeneratedInvoice] = useState<Invoice | null>(null);
+  const [nextNum, setNextNum] = useState("MF-000001");
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+
+  const pendingInvoices = getPendingInvoices(true);
+
+  useEffect(() => {
+    const draft = loadDraft<FormState>();
+    if (draft) {
+      setForm(draft);
+      setEditingDraftId(draft.draftId ?? null);
+    }
+    setNextNum(peekNextNumber());
+  }, []);
+
+  const totals = useMemo(
+    () => calcTotals(form.items, form.deposit),
+    [form.items, form.deposit],
+  );
+
+  const resetForm = () => {
+    setForm({
+      ...initial,
+      issueDate: new Date().toISOString().slice(0, 10),
+    });
+    setEditingDraftId(null);
+    setNextNum(peekNextNumber());
+  };
+
+  const sendInvoiceNotifications = (invoice: Invoice) => {
+    const subject = `Factura ${invoice.number} - ${BUSINESS.brand}`;
+    const body = `Hola ${invoice.client.name || "cliente"},\n\nAdjunto se encuentra la factura ${invoice.number}. Total: ${formatMoney(invoice.total, invoice.currency)}.\n\nGracias por tu confianza.\n${BUSINESS.brand}`;
+    if (invoice.client.email) {
+      const mailto = `mailto:${encodeURIComponent(invoice.client.email)}?cc=${encodeURIComponent(
+        BUSINESS.email,
+      )}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.open(mailto, "_blank");
+    }
+
+    const phone = invoice.client.phone?.replace(/\D/g, "");
+    if (phone) {
+      const message = `Hola ${invoice.client.name || "cliente"}, te envío la factura ${invoice.number}. Total: ${formatMoney(
+        invoice.total,
+        invoice.currency,
+      )}.`;
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank");
+    }
+  };
+
+  const selectedPendingInvoice = pendingInvoices.find((invoice) => invoice.id === form.settleInvoiceId);
+
+  useEffect(() => {
+    if (!selectedPendingInvoice) return;
+
+    setForm((current) => ({
+      ...current,
+      currency: selectedPendingInvoice.currency,
+      paymentMethod: selectedPendingInvoice.paymentMethod,
+      client: selectedPendingInvoice.client,
+      notes:
+        current.notes || `Pago de ${selectedPendingInvoice.number}`,
+      items: [
+        {
+          id: crypto.randomUUID(),
+          quantity: 1,
+          description: `Saldo pendiente de ${selectedPendingInvoice.number}`,
+          unitPrice: selectedPendingInvoice.balance,
+        },
+      ],
+    }));
+  }, [selectedPendingInvoice?.id]);
+
+  const generateInvoice = () => {
+    const num = nextNumber();
+    const rawPayment = Number(form.deposit) || 0;
+    const payment = selectedPendingInvoice
+      ? Math.min(rawPayment, selectedPendingInvoice.balance)
+      : rawPayment;
+    let updatedOriginal: Invoice | null = null;
+
+    if (selectedPendingInvoice) {
+      const updatedBalance = Math.max(0, selectedPendingInvoice.balance - payment);
+      updatedOriginal = {
+        ...selectedPendingInvoice,
+        deposit: selectedPendingInvoice.deposit + payment,
+        balance: updatedBalance,
+        status: updatedBalance > 0 ? "pendiente" : "emitida",
+        notes: `${selectedPendingInvoice.notes ? `${selectedPendingInvoice.notes} | ` : ""}Pago ${formatMoney(
+          payment,
+          selectedPendingInvoice.currency,
+        )}`,
+      };
+    }
+
+    const invoice: Invoice = {
+      id: crypto.randomUUID(),
+      number: num,
+      type: "factura",
+      issueDate: form.issueDate,
+      createdAt: new Date().toISOString(),
+      deliveryDate: form.deliveryDate,
+      currency: form.currency,
+      paymentMethod: form.paymentMethod,
+      client: form.client,
+      items: form.items,
+      deposit: payment,
+      notes:
+        selectedPendingInvoice && !form.notes
+          ? `Pago de ${selectedPendingInvoice.number}`
+          : form.notes,
+      subtotal: totals.subtotal,
+      total: totals.total,
+      balance: totals.balance,
+      status: updatedOriginal ? updatedOriginal.status : totals.balance > 0 ? "pendiente" : "emitida",
+      settlesInvoiceId: selectedPendingInvoice?.id,
+    };
+
+    if (editingDraftId) {
+      removeDraft(editingDraftId);
+      setEditingDraftId(null);
+    }
+
+    if (updatedOriginal && payment > 0) {
+      settleInvoice(updatedOriginal.id, payment);
+    }
+
+    addInvoice(invoice);
+
+    try {
+      downloadInvoicePdf(invoice);
+      toast.success(`Factura ${num} generada`, {
+        description: "PDF descargado y guardada en el historial.",
+      });
+    } catch (error) {
+      console.error("Error al generar o descargar PDF", error);
+      toast.success(`Factura ${num} generada`, {
+        description: "Factura guardada en el historial, pero no se pudo descargar el PDF.",
+      });
+    }
+
+    sendInvoiceNotifications(invoice);
+    clearDraft();
+    setGeneratedInvoice(invoice);
+    resetForm();
+  };
+
+  const saveDraftDocument = () => {
+    if (form.draftId) {
+      removeDraft(form.draftId);
+    }
+
+    const draft: Invoice = {
+      id: form.draftId ?? crypto.randomUUID(),
+      number: form.draftNumber ?? `BOR-${String(Date.now()).slice(-6)}`,
+      type: "factura",
+      issueDate: form.issueDate,
+      createdAt: form.draftCreatedAt ?? new Date().toISOString(),
+      deliveryDate: form.deliveryDate,
+      currency: form.currency,
+      paymentMethod: form.paymentMethod,
+      client: form.client,
+      items: form.items,
+      deposit: Number(form.deposit) || 0,
+      notes: form.notes,
+      subtotal: totals.subtotal,
+      total: totals.total,
+      balance: totals.balance,
+      status: "borrador",
+    };
+
+    addDraft(draft);
+    clearDraft();
+    setEditingDraftId(null);
+    toast.success("Borrador guardado");
+    resetForm();
+  };
+
+  const update = <K extends keyof FormState>(key: K, value: FormState[K]) =>
+    setForm((s) => ({ ...s, [key]: value }));
+
+  const updateClient = (patch: Partial<FormState["client"]>) =>
+    setForm((s) => ({ ...s, client: { ...s.client, ...patch } }));
+
+  const updateItem = (id: string, patch: Partial<LineItem>) =>
+    setForm((s) => ({
+      ...s,
+      items: s.items.map((it) => (it.id === id ? { ...it, ...patch } : it)),
+    }));
+
+  const addItem = () =>
+    setForm((s) => ({ ...s, items: [...s.items, emptyItem()] }));
+
+  const removeItem = (id: string) =>
+    setForm((s) => ({
+      ...s,
+      items: s.items.length > 1 ? s.items.filter((it) => it.id !== id) : s.items,
+    }));
+
+  if (generatedInvoice) {
+    return (
+      <div className="container mx-auto max-w-6xl px-4 py-8">
+        <div className="glass rounded-2xl p-8">
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+                Factura generada
+              </p>
+              <h1 className="mt-1 text-3xl font-bold">
+                <span className="text-gradient">{generatedInvoice.number}</span>
+              </h1>
+            </div>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setGeneratedInvoice(null);
+                navigate({ to: "/" });
+              }}
+            >
+              Volver al inicio
+            </Button>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="space-y-4 rounded-2xl border border-border/60 bg-background/50 p-5">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Cliente
+                </p>
+                <p className="mt-2 text-lg font-semibold">
+                  {generatedInvoice.client.name || "Cliente sin nombre"}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {generatedInvoice.client.email || "Sin correo"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Fecha de emisión
+                </p>
+                <p className="mt-2 text-sm">{new Date(generatedInvoice.createdAt).toLocaleDateString("es-AR")}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Moneda
+                </p>
+                <p className="mt-2 text-sm">{generatedInvoice.currency}</p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border/60 bg-background/50 p-5">
+              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                Totales
+              </p>
+              <div className="mt-3 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span>Subtotal</span>
+                  <span>{formatMoney(generatedInvoice.subtotal, generatedInvoice.currency)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Seña</span>
+                  <span>{formatMoney(generatedInvoice.deposit, generatedInvoice.currency)}</span>
+                </div>
+                <div className="flex justify-between font-semibold">
+                  <span>Total</span>
+                  <span>{formatMoney(generatedInvoice.total, generatedInvoice.currency)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 overflow-x-auto rounded-2xl border border-border/60 bg-background/50 p-5">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs uppercase tracking-wider text-muted-foreground">
+                  <th className="pb-2 text-left">Cantidad</th>
+                  <th className="pb-2 text-left">Descripción</th>
+                  <th className="pb-2 text-right">Precio unitario</th>
+                  <th className="pb-2 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {generatedInvoice.items.map((item) => (
+                  <tr key={item.id} className="border-t border-border/40">
+                    <td className="py-3">{item.quantity || "-"}</td>
+                    <td className="py-3">{item.description || "Sin descripción"}</td>
+                    <td className="py-3 text-right tabular-nums">
+                      {formatMoney(item.unitPrice, generatedInvoice.currency)}
+                    </td>
+                    <td className="py-3 text-right tabular-nums">
+                      {formatMoney(item.quantity * item.unitPrice, generatedInvoice.currency)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto max-w-6xl px-4 py-8">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-6 flex flex-wrap items-end justify-between gap-3"
+      >
+        <div>
+          <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+            Nueva factura · {nextNum}
+          </p>
+          <h1 className="mt-1 text-3xl font-bold">
+            <span className="text-gradient">Generar</span> factura
+          </h1>
+        </div>
+      </motion.div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          {/* CLIENTE */}
+          <Section title="Datos del cliente" subtitle="A quién va dirigida la factura">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Nombre / Empresa">
+                <Input
+                  value={form.client.name}
+                  onChange={(e) => updateClient({ name: e.target.value })}
+                  placeholder="Acme S.A."
+                />
+              </Field>
+              <Field label="Correo electrónico">
+                <Input
+                  type="email"
+                  value={form.client.email}
+                  onChange={(e) => updateClient({ email: e.target.value })}
+                  placeholder="cliente@empresa.com"
+                />
+              </Field>
+              <Field label="Celular">
+                <Input
+                  value={form.client.phone}
+                  onChange={(e) => updateClient({ phone: e.target.value })}
+                  placeholder="11 1234-5678"
+                />
+              </Field>
+              <Field label="CUIT">
+                <Input
+                  value={form.client.cuit}
+                  onChange={(e) => updateClient({ cuit: e.target.value })}
+                  placeholder="20-12345678-9"
+                />
+              </Field>
+              <Field label="Domicilio">
+                <Input
+                  value={form.client.address}
+                  onChange={(e) => updateClient({ address: e.target.value })}
+                  placeholder="Av. Siempre Viva 742"
+                />
+              </Field>
+              <Field label="Código postal">
+                <Input
+                  value={form.client.zip}
+                  onChange={(e) => updateClient({ zip: e.target.value })}
+                  placeholder="1722"
+                />
+              </Field>
+            </div>
+          </Section>
+
+          {/* MÉTODO DE PAGO */}
+          <Section title="Método de pago">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {(
+                [
+                  { id: "credito", label: "Crédito", icon: CreditCard },
+                  { id: "debito", label: "Débito", icon: CreditCard },
+                  { id: "transferencia", label: "Transferencia", icon: Landmark },
+                  { id: "efectivo", label: "Efectivo", icon: Banknote },
+                ] as { id: PaymentMethod; label: string; icon: typeof CreditCard }[]
+              ).map((m) => {
+                const active = form.paymentMethod === m.id;
+                return (
+                  <motion.button
+                    key={m.id}
+                    type="button"
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => update("paymentMethod", m.id)}
+                    className={cn(
+                      "group relative flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all",
+                      active
+                        ? "border-[color:var(--neon-cyan)]/70 bg-card glow-cyan"
+                        : "border-border/60 bg-card/40 hover:border-[color:var(--neon-fuchsia)]/40",
+                    )}
+                  >
+                    <m.icon
+                      className={cn(
+                        "h-5 w-5 transition-colors",
+                        active ? "text-[color:var(--neon-cyan)]" : "text-muted-foreground",
+                      )}
+                    />
+                    <span className="text-xs font-medium">{m.label}</span>
+                    {active && (
+                      <motion.div
+                        layoutId="pay-active"
+                        className="absolute inset-0 rounded-xl ring-1 ring-[color:var(--neon-cyan)]/60"
+                      />
+                    )}
+                  </motion.button>
+                );
+              })}
+            </div>
+          </Section>
+
+          {/* SALDAR CUENTA */}
+          <Section
+            title="Saldar cuenta"
+            subtitle="Selecciona una factura pendiente para marcar como pagada cuando generes esta factura"
+          >
+            <div className="grid gap-4">
+              <Field label="Factura pendiente">
+                <select
+                  value={form.settleInvoiceId ?? ""}
+                  onChange={(e) => update("settleInvoiceId", e.target.value || undefined)}
+                  className="w-full rounded-xl border border-border/60 bg-background/80 px-3 py-2"
+                >
+                  <option value="">Ninguna</option>
+                  {pendingInvoices.map((invoice) => (
+                    <option key={invoice.id} value={invoice.id}>
+                      {invoice.number} — {invoice.client.name || "Cliente"} ({formatMoney(invoice.balance, invoice.currency)})
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              {selectedPendingInvoice ? (
+                <div className="rounded-2xl border border-border/60 bg-card/60 p-4 text-sm">
+                  <p className="font-semibold">{selectedPendingInvoice.number}</p>
+                  <p className="text-muted-foreground">
+                    Cliente: {selectedPendingInvoice.client.name || "Sin nombre"}
+                  </p>
+                  <p className="mt-2">
+                    Monto pendiente: {formatMoney(selectedPendingInvoice.balance, selectedPendingInvoice.currency)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    La nueva factura se genera por separado y actualiza el saldo de la factura original.
+                    Si pagás parcialmente, la factura original seguirá pendiente con su saldo actualizado.
+                  </p>
+                </div>
+              ) : form.settleInvoiceId ? (
+                <p className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                  La factura seleccionada ya no está pendiente.
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No hay ninguna factura seleccionada. Si quieres saldar una cuenta, elige una pendiente.
+                </p>
+              )}
+            </div>
+          </Section>
+
+          {/* MONEDA */}
+          <Section title="Moneda">
+            <div className="inline-flex rounded-xl border border-border/60 bg-card/40 p-1">
+              {(["ARS", "USD"] as Currency[]).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => update("currency", c)}
+                  className={cn(
+                    "rounded-lg px-5 py-2 text-sm font-semibold transition-all",
+                    form.currency === c
+                      ? "bg-gradient-to-r from-[#00E5FF] to-[#FF00D4] text-black"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {c} · {CURRENCY_SYMBOL[c]}
+                </button>
+              ))}
+            </div>
+          </Section>
+
+          {/* ITEMS */}
+          <Section
+            title="Productos / Servicios"
+            subtitle="Cantidad × Precio unitario = Total"
+            actions={
+              <Button size="sm" variant="secondary" onClick={addItem}>
+                <Plus className="mr-1 h-4 w-4" /> Agregar
+              </Button>
+            }
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs uppercase tracking-wider text-muted-foreground">
+                    <th className="w-20 pb-2 text-left">Cant.</th>
+                    <th className="pb-2 text-left">Descripción</th>
+                    <th className="w-32 pb-2 text-right">P. Unit.</th>
+                    <th className="w-32 pb-2 text-right">Total</th>
+                    <th className="w-10 pb-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <AnimatePresence initial={false}>
+                    {form.items.map((it) => {
+                      const line = (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0);
+                      return (
+                        <motion.tr
+                          key={it.id}
+                          initial={{ opacity: 0, y: -6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, x: -10 }}
+                          className="border-t border-border/40"
+                        >
+                          <td className="py-2 pr-2">
+                            <Input
+                              type="number"
+                              min={0}
+                              value={it.quantity || ""}
+                              onChange={(e) =>
+                                updateItem(it.id, { quantity: Number(e.target.value) })
+                              }
+                            />
+                          </td>
+                          <td className="py-2 pr-2">
+                            <Input
+                              value={it.description}
+                              placeholder="Descripción del ítem"
+                              onChange={(e) =>
+                                updateItem(it.id, { description: e.target.value })
+                              }
+                            />
+                          </td>
+                          <td className="py-2 pr-2">
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              className="text-right"
+                              value={it.unitPrice || ""}
+                              onChange={(e) =>
+                                updateItem(it.id, { unitPrice: Number(e.target.value) })
+                              }
+                            />
+                          </td>
+                          <td className="py-2 pr-2 text-right tabular-nums">
+                            {formatMoney(line, form.currency)}
+                          </td>
+                          <td className="py-2 text-right">
+                            <button
+                              type="button"
+                              onClick={() => removeItem(it.id)}
+                              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                              aria-label="Eliminar fila"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </motion.tr>
+                      );
+                    })}
+                  </AnimatePresence>
+                </tbody>
+              </table>
+            </div>
+          </Section>
+
+          {/* ENTREGA + OBSERVACIONES */}
+          <Section title="Entrega y observaciones">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Fecha de emisión">
+                <Input
+                  type="date"
+                  value={form.issueDate}
+                  onChange={(e) => update("issueDate", e.target.value)}
+                />
+              </Field>
+              <Field label="Fecha estimada de entrega">
+                <Input
+                  type="date"
+                  value={form.deliveryDate}
+                  onChange={(e) => update("deliveryDate", e.target.value)}
+                />
+              </Field>
+              <Field label="Seña recibida">
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={form.deposit}
+                  onChange={(e) => update("deposit", Number(e.target.value))}
+                />
+              </Field>
+            </div>
+            <Field label="Observaciones adicionales" className="mt-4">
+              <Textarea
+                rows={4}
+                value={form.notes}
+                onChange={(e) => update("notes", e.target.value)}
+                placeholder="Garantías, condiciones, notas..."
+              />
+            </Field>
+          </Section>
+        </div>
+
+        {/* SUMMARY */}
+        <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass border-gradient rounded-2xl p-5"
+          >
+            <h3 className="text-xs uppercase tracking-wider text-muted-foreground">
+              Resumen
+            </h3>
+            <dl className="mt-4 space-y-2 text-sm">
+              <Row label="Subtotal" value={formatMoney(totals.subtotal, form.currency)} />
+              <Row label="Seña" value={formatMoney(form.deposit, form.currency)} muted />
+              <div className="my-3 h-px bg-gradient-to-r from-transparent via-[color:var(--neon-cyan)]/40 to-transparent" />
+              <Row
+                label="Total"
+                value={formatMoney(totals.total, form.currency)}
+                bold
+                accent="cyan"
+              />
+              <Row
+                label="Debe"
+                value={formatMoney(totals.balance, form.currency)}
+                bold
+                accent="fuchsia"
+              />
+            </dl>
+
+            <div className="mt-5 space-y-2 text-xs text-muted-foreground">
+              <p>
+                Pago: <span className="text-foreground">{PAYMENT_LABEL[form.paymentMethod]}</span>
+              </p>
+              <p>
+                Moneda: <span className="text-foreground">{form.currency}</span>
+              </p>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <Button
+                size="lg"
+                className="w-full bg-gradient-to-r from-[#00E5FF] to-[#FF00D4] text-black hover:opacity-90"
+                onClick={generateInvoice}
+                disabled={!form.client.name || form.items.every((i) => !i.description)}
+              >
+                <Send className="mr-2 h-4 w-4" /> Generar factura
+              </Button>
+
+              <Button
+                size="lg"
+                variant="secondary"
+                className="w-full"
+                onClick={saveDraftDocument}
+              >
+                <Save className="mr-2 h-4 w-4" /> Guardar borrador
+              </Button>
+            </div>
+          </motion.div>
+
+          <div className="glass rounded-2xl p-4 text-xs text-muted-foreground">
+            <p className="mb-2 flex items-center gap-2 font-semibold text-foreground">
+              <Receipt className="h-3.5 w-3.5" /> Número de la factura
+            </p>
+            <p className="font-mono text-base text-gradient">{nextNum}</p>
+            <p className="mt-1">Número asignado al generar la factura.</p>
+          </div>
+        </aside>
+      </div>
+
+    </div>
+  );
+}
+
+function Section({
+  title,
+  subtitle,
+  actions,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="glass border-gradient rounded-2xl p-5"
+    >
+      <div className="mb-4 flex items-end justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            {title}
+          </h2>
+          {subtitle && <p className="text-xs text-muted-foreground/80">{subtitle}</p>}
+        </div>
+        {actions}
+      </div>
+      {children}
+    </motion.section>
+  );
+}
+
+function Field({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("space-y-1.5", className)}>
+      <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+        {label}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
+function Row({
+  label,
+  value,
+  bold,
+  muted,
+  accent,
+}: {
+  label: string;
+  value: string;
+  bold?: boolean;
+  muted?: boolean;
+  accent?: "cyan" | "fuchsia";
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <dt className={cn("text-xs uppercase tracking-wider", muted ? "text-muted-foreground/70" : "text-muted-foreground")}>
+        {label}
+      </dt>
+      <dd
+        className={cn(
+          "tabular-nums",
+          bold && "text-lg font-bold",
+          accent === "cyan" && "text-[color:var(--neon-cyan)]",
+          accent === "fuchsia" && "text-[color:var(--neon-fuchsia)]",
+        )}
+      >
+        {value}
+      </dd>
+    </div>
+  );
+}
