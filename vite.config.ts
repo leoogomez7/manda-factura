@@ -6,12 +6,15 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 
 export default defineConfig({
   plugins: [
-    ...tanstackStart(),
+    ...tanstackStart({
+      spa: {
+        enabled: true // Esto hace que funcione impecable con vite build
+      }
+    }),
     react(),
     tsconfigPaths(),
     tailwindcss(),
   ],
-
   resolve: {
     alias: [
       {
