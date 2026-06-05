@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [
     ...tanstackStart({
       spa: {
-        enabled: true // Esto hace que funcione impecable con vite build
+        enabled: true
       }
     }),
     react(),
