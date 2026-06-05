@@ -3,12 +3,10 @@
   "private": true,
   "sideEffects": false,
   "type": "module",
- "scripts": {
+"scripts": {
   "dev": "vite dev",
-  "build": "vite build", 
-  "preview": "vite preview",
-  "lint": "eslint .",
-  "format": "prettier --write ."
+  "build": "vite build",
+  "preview": "vite preview"
 },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
