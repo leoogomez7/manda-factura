@@ -6,11 +6,7 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 
 export default defineConfig({
   plugins: [
-    ...tanstackStart({
-      spa: {
-        enabled: true
-      }
-    }),
+    ...tanstackStart(), // <-- Dejalo activo sin la opción "spa", para que maneje el SSR
     react(),
     tsconfigPaths(),
     tailwindcss(),
