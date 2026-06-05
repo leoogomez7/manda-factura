@@ -3,14 +3,15 @@
   "private": true,
   "sideEffects": false,
   "type": "module",
-  
-  "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
-    "preview": "vite preview",
-    "lint": "eslint .",
-    "format": "prettier --write ."
+
+"scripts": {
+  "dev": "vite dev",
+  "build": "tsr build && vite build",
+  "preview": "vite preview",
+  "lint": "eslint .",
+  "format": "prettier --write ."
 },
+
 
 
   "dependencies": {
