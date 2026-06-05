@@ -191,7 +191,7 @@ export function generateInvoicePdf(invoice: Invoice): jsPDF {
   doc.setFontSize(8);
   doc.setTextColor(MUTED);
   doc.text(
-    `${BUSINESS.brand} • Documento generado con ${BUSINESS.brand}`,
+    `${BUSINESS.brand} • Factura generada con ${BUSINESS.brand}`,
     pageW / 2,
     pageH - 24,
     { align: "center" },
