@@ -145,22 +145,29 @@ export function NuevaFactura() {
   useEffect(() => {
     if (!selectedPendingInvoice) return;
 
-    setForm((current) => ({
-      ...current,
-      currency: selectedPendingInvoice.currency,
-      paymentMethod: selectedPendingInvoice.paymentMethod,
-      client: selectedPendingInvoice.client,
-      notes: current.notes || `Pago de ${selectedPendingInvoice.number}`,
-      items: [
-        {
-          id: crypto.randomUUID(),
-          quantity: 1,
-          description: `Saldo pendiente de ${selectedPendingInvoice.number}`,
-          unitPrice: selectedPendingInvoice.balance,
-        },
-      ],
-    }));
+    // Evitamos re-escribir el estado si el ítem de saldo ya está cargado
+    setForm((current) => {
+      const yaEstaCargado = current.items.some(it => it.id === `saldo-${selectedPendingInvoice.id}`);
+      if (yaEstaCargado) return current;
+
+      return {
+        ...current,
+        currency: selectedPendingInvoice.currency,
+        paymentMethod: selectedPendingInvoice.paymentMethod,
+        client: selectedPendingInvoice.client,
+        notes: current.notes || `Pago de ${selectedPendingInvoice.number}`,
+        items: [
+          {
+            id: `saldo-${selectedPendingInvoice.id}`, // 💡 ID Estable: Rompe el bucle infinito
+            quantity: 1,
+            description: `Saldo pendiente de ${selectedPendingInvoice.number}`,
+            unitPrice: selectedPendingInvoice.balance,
+          },
+        ],
+      };
+    });
   }, [selectedPendingInvoice?.id]);
+
 
   const generateInvoice = async () => {
     const num = nextNumber();
