@@ -478,6 +478,7 @@ const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
           </Section>
 
           {/* SECCIÓN: MÉTODO DE PAGO */}
+          {/* SECCIÓN: MÉTODO DE PAGO */}
           <Section title="Método de pago">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {(
@@ -490,16 +491,14 @@ const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
               ).map((m) => {
                 const active = form.paymentMethod === m.id;
                 return (
-                  <motion.button
+                  <button
                     key={m.id}
                     type="button"
-                    whileHover={{ y: -2 }}
-                    whileTap={{ scale: 0.97 }}
                     onClick={() => update("paymentMethod", m.id)}
                     className={cn(
-                      "group relative flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all",
+                      "group relative flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all duration-200 active:scale-[0.98] cursor-pointer",
                       active
-                        ? "border-(--neon-cyan)/70 bg-card glow-cyan"
+                        ? "border-(--neon-cyan)/70 bg-card glow-cyan shadow-[0_0_15px_rgba(0,229,255,0.15)]"
                         : "border-border/60 bg-card/40 hover:border-(--neon-fuchsia)/40",
                     )}
                   >
@@ -511,12 +510,9 @@ const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
                     />
                     <span className="text-xs font-medium">{m.label}</span>
                     {active && (
-                      <motion.div
-                        layoutId="pay-active"
-                        className="absolute inset-0 rounded-xl ring-1 ring-(--neon-cyan)/60"
-                      />
+                      <div className="absolute inset-0 rounded-xl ring-1 ring-(--neon-cyan)/60 pointer-events-none" />
                     )}
-                  </motion.button>
+                  </button>
                 );
               })}
             </div>
@@ -757,11 +753,21 @@ const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
 }
 
 // ==========================================
-// COMPONENTES COMPLEMENTARIOS REUTILIZABLES
+// COMPONENTES COMPLEMENTARIOS REUTILIZABLES NATIVOS
 // ==========================================
-function Section({ title, subtitle, actions, children }: { title: string; subtitle?: string; actions?: React.ReactNode; children: React.ReactNode; }) {
+function Section({
+  title,
+  subtitle,
+  actions,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="glass border-gradient rounded-2xl p-5">
+    <section className="glass border-gradient rounded-2xl p-5 transition-all duration-300">
       <div className="mb-4 flex items-end justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{title}</h2>
@@ -822,3 +828,4 @@ function Row({
     </div>
   );
 }
+
