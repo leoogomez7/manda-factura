@@ -1,6 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import {
   Banknote,
   CreditCard,
@@ -89,13 +88,17 @@ const initial: FormState = {
 };
 
 function NuevaFactura() {
+  console.count("NuevaFactura render");
   const navigate = useNavigate();
   const [form, setForm] = useState<FormState>(initial);
   const [generatedInvoice, setGeneratedInvoice] = useState<Invoice | null>(null);
   const [nextNum, setNextNum] = useState("MF-000001");
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
 
-  const pendingInvoices = getPendingInvoices(true);
+  const pendingInvoices = useMemo(
+    () => getPendingInvoices(true),
+    []
+  );
 
   useEffect(() => {
     const draft = loadDraft<FormState>();

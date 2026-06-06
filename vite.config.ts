@@ -12,9 +12,51 @@ export default defineConfig({
     tailwindcss(),
     tanstackRouter(),
   ],
+
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+    },
+  },
+
+  build: {
+    sourcemap: false,
+
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: [
+            "react",
+            "react-dom",
+          ],
+
+          router: [
+            "@tanstack/react-router",
+            "@tanstack/react-query",
+          ],
+
+          motion: [
+            "framer-motion",
+          ],
+
+          charts: [
+            "recharts",
+          ],
+
+          pdf: [
+            "jspdf",
+            "jspdf-autotable",
+          ],
+
+          ui: [
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-dropdown-menu",
+            "@radix-ui/react-popover",
+            "@radix-ui/react-select",
+            "@radix-ui/react-tabs",
+          ],
+        },
+      },
     },
   },
 });
