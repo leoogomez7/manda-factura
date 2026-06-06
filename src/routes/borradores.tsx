@@ -84,7 +84,7 @@ function BorradoresPage() {
           <p className="text-sm text-muted-foreground">
             Guarda una factura como borrador para verla aquí.
           </p>
-          <Button asChild className="mt-5 bg-gradient-to-r from-[#00E5FF] to-[#FF00D4] text-black">
+          <Button asChild className="mt-5 .bg-gradient-to-r from-[#00E5FF] to-[#FF00D4] text-black">
             <Link to="/nueva">Crear nueva factura</Link>
           </Button>
         </div>
@@ -94,7 +94,7 @@ function BorradoresPage() {
             <p className="text-sm text-muted-foreground">
               {filtered.length} borrador{filtered.length === 1 ? "" : "es"} guardado{filtered.length === 1 ? "" : "s"}.
             </p>
-            <Button asChild size="sm" className="bg-gradient-to-r from-[#00E5FF] to-[#FF00D4] text-black">
+            <Button asChild size="sm" className=".bg-gradient-to-r from-[#00E5FF] to-[#FF00D4] text-black">
               <Link to="/nueva">Crear nuevo</Link>
             </Button>
           </div>
@@ -113,7 +113,7 @@ function BorradoresPage() {
               <tbody>
                 {filtered.map((draft) => (
                   <tr key={draft.id} className="border-t border-border/40 hover:bg-card/40">
-                    <td className="px-4 py-3 font-mono text-[color:var(--neon-cyan)]">{draft.number}</td>
+                    <td className="px-4 py-3 font-mono text-color:var(--neon-cyan)">{draft.number}</td>
                     <td className="px-4 py-3">{draft.client.name || "—"}</td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {new Date(draft.createdAt).toLocaleDateString("es-AR")}

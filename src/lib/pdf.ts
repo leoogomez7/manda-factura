@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import {
   BUSINESS,
   CURRENCY_SYMBOL,
@@ -14,7 +12,12 @@ const DARK = "#0B0B0F";
 const LIGHT = "#F5F7FA";
 const MUTED = "#9CA3AF";
 
-export function generateInvoicePdf(invoice: Invoice): jsPDF {
+// Volvemos la función asíncrona para inyectar dinámicamente las librerías
+export async function generateInvoicePdf(invoice: Invoice) {
+  // 🚀 CARGA BAJO DEMANDA: Se descargan solo cuando se ejecuta la función
+  const { default: jsPDF } = await import("jspdf");
+  const { default: autoTable } = await import("jspdf-autotable");
+
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -23,7 +26,7 @@ export function generateInvoicePdf(invoice: Invoice): jsPDF {
   doc.setFillColor(DARK);
   doc.rect(0, 0, pageW, 120, "F");
 
-  // Neon gradient strip (simulated with two rects)
+  // Neon gradient strip
   doc.setFillColor(CYAN);
   doc.rect(0, 118, pageW / 2, 3, "F");
   doc.setFillColor(FUCHSIA);
@@ -200,8 +203,8 @@ export function generateInvoicePdf(invoice: Invoice): jsPDF {
   return doc;
 }
 
-export function downloadInvoicePdf(invoice: Invoice) {
-  const doc = generateInvoicePdf(invoice);
+export async function downloadInvoicePdf(invoice: Invoice) {
+  const doc = await generateInvoicePdf(invoice);
   const fileName = `${invoice.number}-${invoice.client.name || "cliente"}.pdf`;
 
   try {
@@ -219,8 +222,8 @@ export function downloadInvoicePdf(invoice: Invoice) {
   }
 }
 
-export function printInvoicePdf(invoice: Invoice) {
-  const doc = generateInvoicePdf(invoice);
+export async function printInvoicePdf(invoice: Invoice) {
+  const doc = await generateInvoicePdf(invoice);
   const url = doc.output("bloburl");
   window.open(url, "_blank");
 }

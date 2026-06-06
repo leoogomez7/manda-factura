@@ -15,7 +15,12 @@
     "jsx": "react-jsx",
 
     "strict": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
     
   },
 

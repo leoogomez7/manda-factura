@@ -30,9 +30,9 @@ export default defineConfig({
             "react-dom",
           ],
 
+          // 💡 OPTIMIZACIÓN: Dejamos el enrutador solo para que no arrastre bloques pesados
           router: [
             "@tanstack/react-router",
-            "@tanstack/react-query",
           ],
 
           motion: [
@@ -43,10 +43,10 @@ export default defineConfig({
             "recharts",
           ],
 
-          pdf: [
+         /* pdf: [
             "jspdf",
             "jspdf-autotable",
-          ],
+          ],*/
 
           ui: [
             "@radix-ui/react-dialog",

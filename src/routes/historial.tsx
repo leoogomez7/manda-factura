@@ -92,7 +92,7 @@ function HistorialPage() {
           </p>
           <Button
             asChild
-            className="mt-5 bg-gradient-to-r from-[#00E5FF] to-[#FF00D4] text-black"
+            className="mt-5 .bg-gradient-to-r from-[#00E5FF] to-[#FF00D4] text-black"
           >
             <Link to="/nueva">Crear factura</Link>
           </Button>
@@ -123,7 +123,7 @@ function HistorialPage() {
                     exit={{ opacity: 0, x: -20 }}
                     className="border-t border-border/40 hover:bg-card/40"
                   >
-                    <td className="px-4 py-3 font-mono text-[color:var(--neon-cyan)]">
+                    <td className="px-4 py-3 font-mono text-color:var(--neon-cyan)">
                       {i.number}
                     </td>
                     <td className="px-4 py-3">{i.client.name || "—"}</td>
@@ -176,7 +176,7 @@ function HistorialPage() {
               <div key={i.id} className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-mono text-sm text-[color:var(--neon-cyan)]">
+                    <p className="font-mono text-sm text-color:var(--neon-cyan)">
                       {i.number}
                     </p>
                     <p className="mt-0.5 font-semibold">{i.client.name || "—"}</p>
@@ -236,8 +236,8 @@ function StatusPill({ status }: { status: Invoice["status"] }) {
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
         isEm
-          ? "bg-[color:var(--neon-cyan)]/10 text-[color:var(--neon-cyan)] ring-1 ring-[color:var(--neon-cyan)]/30"
-          : "bg-[color:var(--neon-fuchsia)]/10 text-[color:var(--neon-fuchsia)] ring-1 ring-[color:var(--neon-fuchsia)]/30"
+          ? "bg-color:var(--neon-cyan)/10 text-color:var(--neon-cyan) ring-1 ring-color:var(--neon-cyan)/30"
+          : "bg-color:var(--neon-fuchsia)/10 text-color:var(--neon-fuchsia) ring-1 ring-color:var(--neon-fuchsia)/30"
       }`}
     >
       <span className="h-1.5 w-1.5 rounded-full bg-current" />
