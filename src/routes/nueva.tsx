@@ -101,10 +101,11 @@ export function NuevaFactura() {
     if (draft) {
       setForm(draft);
       setEditingDraftId(draft.draftId ?? null);
+    } else {
+      // Si no hay borrador, nos aseguramos de limpiar residuos
+      setNextNum(peekNextNumber());
     }
-    setNextNum(peekNextNumber());
   }, []);
-
   const totals = useMemo(
     () => calcTotals(form.items, form.deposit),
     [form.items, form.deposit],
