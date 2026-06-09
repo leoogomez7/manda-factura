@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { PASSWORD } from "@/lib/env";
 import {
   addDraft,
   addInvoice,
@@ -268,7 +269,7 @@ export function NuevaFactura() {
   };
 
   const handlePasswordSubmit = async () => {
-    if (passwordInput !== "Roque1970") {
+    if (passwordInput !== PASSWORD) {
       setPasswordError("Contraseña incorrecta.");
       return;
     }

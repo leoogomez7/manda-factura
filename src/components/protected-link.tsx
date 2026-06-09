@@ -1,8 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import type { ComponentProps, MouseEvent } from "react";
+import { PASSWORD } from "@/lib/env";
 
 const PROTECTED_PATH = "/nueva";
-const PASSWORD = import.meta.env.VITE_PASSWORD;
 
 type ProtectedLinkProps = ComponentProps<typeof Link>;
 

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
+import { PASSWORD } from "@/lib/env";
 import {
   formatMoney,
   getInvoices,
@@ -172,7 +173,7 @@ function HistorialPage() {
   };
 
   const handlePasswordSubmit = async () => {
-    if (passwordInput !== "Roque1970") {
+    if (passwordInput !== PASSWORD) {
       setPasswordError("Contraseña incorrecta.");
       return;
     }
