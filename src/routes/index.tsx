@@ -14,8 +14,8 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
   head: () => ({
     meta: [
-      { title: "Manda Factura" },
-      { name: "description", content: "Resumen de facturación, ingresos y métodos de pago." },
+      { title: "Manda Remito" },
+      { name: "description", content: "Resumen de remitos, ingresos y métodos de pago." },
     ],
   }),
 });
@@ -122,19 +122,19 @@ function Dashboard() {
       >
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-            Panel principal
+            Panel
           </p>
           <h1 className="mt-1 text-3xl font-bold sm:text-4xl">
-            <span className="text-gradient">Manda Factura</span>{" "}
+            <span className="text-gradient">Manda Remito</span>{" "}
             <span className="text-foreground/90">Studio</span>
           </h1>
           <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-            Generá facturas profesionales, todo se guarda en tu cuenta.
+            Generá remitos profesionales, todo se guarda en tu cuenta.
           </p>
         </div>
         <Button asChild size="lg" className="group">
           <Link to="/nueva">
-            Nueva factura
+            Nuevo remito
             <ArrowUpRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
           </Link>
         </Button>
@@ -143,13 +143,13 @@ function Dashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           icon={<Wallet className="h-4 w-4" />}
-          label="Total facturado (ARS)"
+          label="Total remitido (ARS)"
           value={formatMoney(stats.totalARS, "ARS")}
           accent="cyan"
         />
         <StatCard
           icon={<TrendingUp className="h-4 w-4" />}
-          label="Total facturado (USD)"
+          label="Total remitido (USD)"
           value={formatMoney(stats.totalUSD, "USD")}
           accent="fuchsia"
         />
@@ -167,7 +167,7 @@ function Dashboard() {
         />
         <StatCard
           icon={<Receipt className="h-4 w-4" />}
-          label="Facturas totales"
+          label="Remitos totales"
           value={`${stats.invoiceCount}`}
           accent="cyan"
         />
@@ -186,7 +186,7 @@ function Dashboard() {
                 Seleccionar mes
               </h3>
               <p className="text-xs text-muted-foreground">
-                Ver total facturado y cantidad de facturas por moneda.
+                Ver total remitido y cantidad de remitos por moneda.
               </p>
             </div>
             <select
@@ -212,34 +212,34 @@ function Dashboard() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl border border-border/60 bg-background/70 p-5">
               <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                Facturado (ARS)
+                Remitido (ARS)
               </p>
               <p className="mt-3 text-2xl font-bold tabular-nums">
                 {formatMoney(monthly.totalARS, "ARS")}
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                {monthly.countARS} factura{monthly.countARS === 1 ? "" : "s"}
+                {monthly.countARS} remito{monthly.countARS === 1 ? "" : "s"}
               </p>
             </div>
             <div className="rounded-2xl border border-border/60 bg-background/70 p-5">
               <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                Facturado (USD)
+                Remitido (USD)
               </p>
               <p className="mt-3 text-2xl font-bold tabular-nums">
                 {formatMoney(monthly.totalUSD, "USD")}
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                {monthly.countUSD} factura{monthly.countUSD === 1 ? "" : "s"}
+                {monthly.countUSD} remito{monthly.countUSD === 1 ? "" : "s"}
               </p>
             </div>
           </div>
 
           <div className="mt-4 rounded-2xl border border-border/60 bg-background/70 p-5">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">
-              Cantidad total de facturas
+              Cantidad total de remitos
             </p>
             <p className="mt-3 text-2xl font-bold tabular-nums">
-              {monthly.countARS + monthly.countUSD} facturas
+              {monthly.countARS + monthly.countUSD} remitos
             </p>
           </div>
         </motion.div>
@@ -261,7 +261,7 @@ function Dashboard() {
               >
                 <div className="flex items-center justify-between gap-3">
                   <p className="font-medium text-foreground">{method.name}</p>
-                  <span className="text-xs text-muted-foreground">{method.value} factura{method.value === 1 ? "" : "s"}</span>
+                  <span className="text-xs text-muted-foreground">{method.value} remito{method.value === 1 ? "" : "s"}</span>
                 </div>
               </div>
             ))}

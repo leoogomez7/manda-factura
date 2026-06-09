@@ -18,9 +18,9 @@ import { BUSINESS } from "@/lib/business";
 
 const items = [
   { title: "Menú principal", url: "/", icon: LayoutDashboard },
-  { title: "Nueva factura", url: "/nueva", icon: FilePlus2 },
-  { title: "Facturas borradores", url: "/borradores", icon: Archive },
-  { title: "Facturas emitidas", url: "/historial", icon: FileCheck },
+  { title: "Nuevo remito", url: "/nueva", icon: FilePlus2 },
+  { title: "Remitos borradores", url: "/borradores", icon: Archive },
+  { title: "Remitos emitidos", url: "/historial", icon: FileCheck },
 ];
 
 export function AppSidebar() {
@@ -40,12 +40,12 @@ export function AppSidebar() {
         <div className="flex items-center gap-3 px-2 py-3">
           <img
             src={logo}
-            alt="Manda Factura"
+            alt="Manda Remito"
             className="h-10 w-10 rounded-full glow-cyan"
           />
           <div className="flex flex-col leading-tight group-data-[collapsible=icon]:hidden">
             <span className="text-sm font-bold tracking-wide text-gradient">
-              MANDA FACTURA
+              MANDA REMITO
             </span>
             <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
               LRG Web Desing
@@ -56,7 +56,7 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+          <SidebarGroupLabel>Panel administrativo</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => {

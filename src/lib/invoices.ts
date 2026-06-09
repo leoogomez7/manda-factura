@@ -43,6 +43,11 @@ const KEY_COUNTER = "mf:counter";
 const KEY_DRAFT = "mf:draft";
 const KEY_DRAFTS = "mf:drafts";
 
+// Variables de caché para estabilizar las referencias en React
+let _cachedInvoices: Invoice[] | null = null;
+let _cachedPendingRoot: Invoice[] | null = null;
+let _cachedPendingAll: Invoice[] | null = null;
+
 export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   credito: "Tarjeta de Crédito",
   debito: "Tarjeta de Débito",
@@ -84,10 +89,15 @@ function safeParse<T>(raw: string | null, fallback: T): T {
 
 export function getInvoices(): Invoice[] {
   if (typeof window === "undefined") return [];
-  return safeParse<Invoice[]>(localStorage.getItem(KEY_INVOICES), []);
+  if (_cachedInvoices) return _cachedInvoices; // 💡 Retorna la misma referencia estable
+  _cachedInvoices = safeParse<Invoice[]>(localStorage.getItem(KEY_INVOICES), []);
+  return _cachedInvoices;
 }
 
 export function saveInvoices(list: Invoice[]) {
+  _cachedInvoices = list;
+  _cachedPendingRoot = null; // Invalidamos la caché al guardar
+  _cachedPendingAll = null;
   localStorage.setItem(KEY_INVOICES, JSON.stringify(list));
 }
 
@@ -104,13 +114,22 @@ export function peekNextNumber(): string {
 }
 
 export function addInvoice(invoice: Invoice) {
-  const all = getInvoices();
+  const all = [...getInvoices()];
   all.unshift(invoice);
   saveInvoices(all);
 }
 
 export function removeInvoice(id: string) {
-  saveInvoices(getInvoices().filter((i) => i.id !== id));
+  const invoices = getInvoices();
+  const invoice = invoices.find((item) => item.id === id);
+  if (!invoice) return;
+
+  const rootInvoice = findRootInvoice(invoice, invoices);
+  saveInvoices(
+    invoices.filter(
+      (item) => item.id !== rootInvoice.id && !isLinkedToInvoice(item, rootInvoice.id, invoices),
+    ),
+  );
 }
 
 export function updateInvoice(invoice: Invoice) {
@@ -138,9 +157,18 @@ function isLinkedToInvoice(invoice: Invoice, rootId: string, allInvoices: Invoic
   return false;
 }
 
+// 💡 SE OPTIMIZÓ ACÁ: Si React llama seguido a esta función, devuelve la caché en memoria para que useMemo no se rompa
 export function getPendingInvoices(rootOnly = false): Invoice[] {
+  if (rootOnly && _cachedPendingRoot) return _cachedPendingRoot;
+  if (!rootOnly && _cachedPendingAll) return _cachedPendingAll;
+
   const pending = getInvoices().filter((invoice) => invoice.status === "pendiente");
-  return rootOnly ? pending.filter((invoice) => !invoice.settlesInvoiceId) : pending;
+  const result = rootOnly ? pending.filter((invoice) => !invoice.settlesInvoiceId) : pending;
+
+  if (rootOnly) _cachedPendingRoot = result;
+  else _cachedPendingAll = result;
+
+  return result;
 }
 
 export function settleInvoice(id: string, paymentAmount?: number) {

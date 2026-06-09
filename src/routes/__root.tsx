@@ -76,25 +76,25 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Manda Factura — Generador de facturas y recibos" },
+      { title: "Manda Remito — Generador de remitos y recibos" },
       {
         name: "description",
         content:
-          "Manda Factura: genera facturas y recibos profesionales en segundos. Estética neon, PDF al instante e historial integrado.",
+          "Manda Remito: genera remitos y recibos profesionales en segundos. Estética neon, PDF al instante e historial integrado.",
       },
       { name: "author", content: "Leonardo Roque Gómez" },
-      { property: "og:title", content: "Manda Factura — Generador de facturas y recibos" },
+      { property: "og:title", content: "Manda Remito — Generador de remitos y recibos" },
       {
         property: "og:description",
-        content: "Generador profesional de facturas y recibos.",
+        content: "Generador profesional de remitos y recibos.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@MandaFactura" },
-      { name: "twitter:title", content: "Manda Factura — Generador de facturas y recibos" },
-      { name: "description", content: "Manda Factura Pro is a professional web application for generating invoices and receipts." },
-      { property: "og:description", content: "Manda Factura Pro is a professional web application for generating invoices and receipts." },
-      { name: "twitter:description", content: "Manda Factura Pro is a professional web application for generating invoices and receipts." },
+      { name: "twitter:title", content: "Manda Remito — Generador de remitos y recibos" },
+      { name: "description", content: "Manda Remito Pro is a professional web application for generating remitos and receipts." },
+      { property: "og:description", content: "Manda Remito Pro is a professional web application for generating remitos and receipts." },
+      { name: "twitter:description", content: "Manda Remito Pro is a professional web application for generating remitos and receipts." },
     ],
     links: [
       {
@@ -116,15 +116,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        {children}
-        <Scripts />
-      </body>
-    </html>
+    <>
+      <HeadContent />
+      {children}
+      <Scripts />
+    </>
   );
 }
 
@@ -140,7 +136,7 @@ function RootComponent() {
             <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-border/60 bg-background/60 px-4 backdrop-blur">
               <SidebarTrigger />
               <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                Manda Factura
+                Manda Remito
               </div>
               </header>
             <main className="flex-1">

@@ -43,8 +43,8 @@ export const Route = createFileRoute("/nueva")({
   component: NuevaFactura,
   head: () => ({
     meta: [
-      { title: "Nueva factura" },
-      { name: "description", content: "Generá una nueva factura o recibo profesional." },
+      { title: "Nuevo remito" },
+      { name: "description", content: "Generá un nuevo remito o recibo profesional." },
     ],
   }),
 });
@@ -88,24 +88,32 @@ const initial: FormState = {
 
 export function NuevaFactura() {
   const navigate = useNavigate();
-  const [form, setForm] = useState<FormState>(initial);
+  const [form, setForm] = useState<FormState>(() => {
+    const draft = loadDraft<FormState>();
+    return draft || {
+      ...initial,
+      issueDate: new Date().toISOString().slice(0, 10),
+    };
+  });
   const [generatedInvoice, setGeneratedInvoice] = useState<Invoice | null>(null);
-  const [nextNum, setNextNum] = useState("MF-000001");
-  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  // const [nextNum, setNextNum] = useState("MF-000001");
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(() => {
+    const draft = loadDraft<FormState>();
+    return draft ? draft.draftId ?? null : null;
+  });
+  const [nextNum, setNextNum] = useState(() => peekNextNumber());
 
   // OPTIMIZACIÓN: useMemo evita leer el localStorage en cada renderizado
   const pendingInvoices = useMemo(() => getPendingInvoices(true), []);
 
   useEffect(() => {
-    const draft = loadDraft<FormState>();
-    if (draft) {
-      setForm(draft);
-      setEditingDraftId(draft.draftId ?? null);
-    } else {
-      // Si no hay borrador, nos aseguramos de limpiar residuos
-      setNextNum(peekNextNumber());
-    }
+    // Dejalo vacío o borralo, la inicialización ya se hizo arriba de forma nativa.
   }, []);
+
   const totals = useMemo(
     () => calcTotals(form.items, form.deposit),
     [form.items, form.deposit],
@@ -121,8 +129,8 @@ export function NuevaFactura() {
   };
 
   const sendInvoiceNotifications = (invoice: Invoice) => {
-    const subject = `Factura ${invoice.number} - ${BUSINESS.brand}`;
-    const body = `Hola ${invoice.client.name || "cliente"},\n\nAdjunto se encuentra la factura ${invoice.number}. Total: ${formatMoney(invoice.total, invoice.currency)}.\n\nGracias por tu confianza.\n${BUSINESS.brand}`;
+    const subject = `Remito ${invoice.number} - ${BUSINESS.brand}`;
+    const body = `Hola ${invoice.client.name || "cliente"},\n\nAdjunto se encuentra el remito ${invoice.number}. Total: ${formatMoney(invoice.total, invoice.currency)}.\n\nGracias por tu confianza.\n${BUSINESS.brand}`;
     
     if (invoice.client.email) {
       const mailto = `mailto:${encodeURIComponent(invoice.client.email)}?cc=${encodeURIComponent(
@@ -133,11 +141,11 @@ export function NuevaFactura() {
 
     const phone = invoice.client.phone?.replace(/\D/g, "");
     if (phone) {
-      const message = `Hola ${invoice.client.name || "cliente"}, te envío la factura ${invoice.number}. Total: ${formatMoney(
+      const message = `Hola ${invoice.client.name || "cliente"}, te envío el remito ${invoice.number}. Total: ${formatMoney(
         invoice.total,
         invoice.currency,
       )}.`;
-      window.open(`https://wa.me{phone}?text=${encodeURIComponent(message)}`, "_blank");
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank");
     }
   };
 
@@ -154,7 +162,6 @@ export function NuevaFactura() {
       return {
         ...current,
         currency: selectedPendingInvoice.currency,
-        paymentMethod: selectedPendingInvoice.paymentMethod,
         client: selectedPendingInvoice.client,
         notes: current.notes || `Pago de ${selectedPendingInvoice.number}`,
         items: [
@@ -227,13 +234,13 @@ export function NuevaFactura() {
       // OPTIMIZACIÓN: Carga diferida dinámica del generador de PDF
       const { downloadInvoicePdf } = await import("@/lib/pdf");
       await downloadInvoicePdf(invoice);
-      toast.success(`Factura ${num} generada`, {
-        description: "PDF descargado y guardada en el historial.",
+      toast.success(`Remito ${num} generado`, {
+        description: "PDF descargado y guardado en el historial.",
       });
     } catch (error) {
       console.error("Error al generar o descargar PDF", error);
-      toast.success(`Factura ${num} generada`, {
-        description: "Factura guardada en el historial, pero no se pudo descargar el PDF.",
+      toast.success(`Remito ${num} generado`, {
+        description: "Remito guardado en el historial, pero no se pudo descargar el PDF.",
       });
     }
 
@@ -241,6 +248,34 @@ export function NuevaFactura() {
     clearDraft();
     setGeneratedInvoice(invoice);
     resetForm();
+  };
+
+  const handleGenerateClick = () => {
+    if (!form.client.name) {
+      window.alert("Ingresa el nombre del cliente antes de generar el remito.");
+      return;
+    }
+
+    if (totals.total <= 0) {
+      window.alert("Agrega al menos un ítem con importe válido antes de generar el remito.");
+      return;
+    }
+
+    setPasswordError("");
+    setPasswordInput("");
+    setShowPassword(false);
+    setPasswordModalOpen(true);
+  };
+
+  const handlePasswordSubmit = async () => {
+    if (passwordInput !== "Roque1970") {
+      setPasswordError("Contraseña incorrecta.");
+      return;
+    }
+
+    setPasswordModalOpen(false);
+    setPasswordInput("");
+    await generateInvoice();
   };
 
   const saveDraftDocument = () => {
@@ -308,7 +343,7 @@ const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
           <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-                Factura generada
+                Remito generado
               </p>
               <h1 className="mt-1 text-3xl font-bold">
                 <span className="text-gradient">{generatedInvoice.number}</span>
@@ -416,10 +451,10 @@ const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
       >
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-            Nueva factura · {nextNum}
+            Nuevo remito · {nextNum}
           </p>
           <h1 className="mt-1 text-3xl font-bold">
-            <span className="text-gradient">Generar</span> factura
+            <span className="text-gradient">Generar</span> remito
           </h1>
         </div>
       </motion.div>
@@ -429,7 +464,7 @@ const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
         <div className="space-y-6 lg:col-span-2">
           
           {/* SECCIÓN: DATOS CLIENTE */}
-          <Section title="Datos del cliente" subtitle="A quién va dirigida la factura">
+          <Section title="Datos del cliente" subtitle="A quién va dirigido el remito">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Nombre / Empresa">
                 <Input
@@ -521,10 +556,10 @@ const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
           {/* SECCIÓN: SALDAR CUENTA */}
           <Section
             title="Saldar cuenta"
-            subtitle="Selecciona una factura pendiente para marcar como pagada cuando generes esta factura"
+            subtitle="Selecciona un remito pendiente para marcar como pagado cuando generes este remito"
           >
             <div className="grid gap-4">
-              <Field label="Factura pendiente">
+              <Field label="Remito pendiente">
                 <select
                   value={form.settleInvoiceId ?? ""}
                   onChange={(e) => update("settleInvoiceId", e.target.value || undefined)}
@@ -549,17 +584,17 @@ const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
                     Monto pendiente: {formatMoney(selectedPendingInvoice.balance, selectedPendingInvoice.currency)}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    La nueva factura se genera por separado y actualiza el saldo de la factura original.
-                    Si pagás parcialmente, la factura original seguirá pendiente con su saldo actualizado.
+                    El nuevo remito se genera por separado y actualiza el saldo del remito original.
+                    Si pagás parcialmente, el remito original seguirá pendiente con su saldo actualizado.
                   </p>
                 </div>
               ) : form.settleInvoiceId ? (
                 <p className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-                  La factura seleccionada ya no está pendiente.
+                  El remito seleccionado ya no está pendiente.
                 </p>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  No hay ninguna factura seleccionada. Si quieres saldar una cuenta, elige una pendiente.
+                  No hay ningún remito seleccionado. Si quieres saldar una cuenta, elige uno pendiente.
                 </p>
               )}
             </div>
@@ -720,12 +755,12 @@ const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
 
             <div className="mt-5 space-y-3">
               <Button
+                type="button"
                 size="lg"
-                className="w-full .bg-gradient-to-r from-[#00E5FF] to-[#FF00D4] text-black hover:opacity-90"
-                onClick={generateInvoice}
-                disabled={!form.client.name || form.items.every((i) => !i.description)}
+                className="w-full bg-gradient-to-r from-[#00E5FF] to-[#FF00D4] text-black hover:opacity-90"
+                onClick={handleGenerateClick}
               >
-                <Send className="mr-2 h-4 w-4" /> Generar factura
+                <Send className="mr-2 h-4 w-4" /> Generar remito
               </Button>
 
               <Button
@@ -739,12 +774,59 @@ const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
             </div>
           </motion.div>
 
+          {passwordModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8">
+              <div className="w-full max-w-md rounded-3xl bg-background p-6 shadow-xl ring-1 ring-border">
+                <h2 className="text-xl font-semibold">Contraseña requerida</h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Ingresa la contraseña para generar el remito.
+                </p>
+                <input
+                  autoFocus
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  type={showPassword ? "text" : "password"}
+                  className="mt-4 w-full rounded-2xl border border-border/60 bg-background/80 px-4 py-3 text-sm outline-none focus:border-(--neon-cyan)/70"
+                  placeholder="Contraseña"
+                />
+                <label className="mt-3 inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={showPassword}
+                    onChange={(e) => setShowPassword(e.target.checked)}
+                    className="h-4 w-4 rounded border border-border/60 bg-background text-cyan-500 focus:ring-cyan-500"
+                  />
+                  Mostrar contraseña
+                </label>
+                {passwordError && (
+                  <p className="mt-2 text-sm text-destructive">{passwordError}</p>
+                )}
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    className="rounded-2xl border border-border/60 bg-card/80 px-4 py-3 text-sm transition hover:bg-card"
+                    onClick={() => setPasswordModalOpen(false)}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-2xl bg-gradient-to-r from-[#00E5FF] to-[#FF00D4] px-4 py-3 text-sm font-semibold text-black transition hover:opacity-90"
+                    onClick={handlePasswordSubmit}
+                  >
+                    Confirmar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="glass rounded-2xl p-4 text-xs text-muted-foreground">
             <p className="mb-2 flex items-center gap-2 font-semibold text-foreground">
-              <Receipt className="h-3.5 w-3.5" /> Número de la factura
+              <Receipt className="h-3.5 w-3.5" /> Número del remito
             </p>
             <p className="font-mono text-base text-gradient">{nextNum}</p>
-            <p className="mt-1">Número asignado al generar la factura.</p>
+            <p className="mt-1">Número asignado al generar el remito.</p>
           </div>
         </aside>
       </div>

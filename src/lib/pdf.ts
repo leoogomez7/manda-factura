@@ -5,6 +5,7 @@ import {
   formatMoney,
   type Invoice,
 } from "./invoices";
+import logoUrl from "@/assets/logo.png?url";
 
 const CYAN = "#00E5FF";
 const FUCHSIA = "#FF00D4";
@@ -13,6 +14,32 @@ const LIGHT = "#F5F7FA";
 const MUTED = "#9CA3AF";
 
 // Volvemos la función asíncrona para inyectar dinámicamente las librerías
+async function loadImageDataUrl(url: string): Promise<string> {
+  const response = await fetch(url);
+  const blob = await response.blob();
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function loadLogo(url: string): Promise<{ dataUrl: string; width: number; height: number }> {
+  const dataUrl = await loadImageDataUrl(url);
+  return await new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve({ dataUrl, width: image.naturalWidth, height: image.naturalHeight });
+    image.onerror = reject;
+    image.src = dataUrl;
+  });
+}
+
+function formatDateOrRaw(value: string) {
+  const date = new Date(value);
+  return value && !isNaN(date.getTime()) ? date.toLocaleDateString("es-AR") : value || "—";
+}
+
 export async function generateInvoicePdf(invoice: Invoice) {
   // 🚀 CARGA BAJO DEMANDA: Se descargan solo cuando se ejecuta la función
   const { default: jsPDF } = await import("jspdf");
@@ -21,57 +48,78 @@ export async function generateInvoicePdf(invoice: Invoice) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
+  const headerHeight = 150;
 
   // Dark header band
   doc.setFillColor(DARK);
-  doc.rect(0, 0, pageW, 120, "F");
+  doc.rect(0, 0, pageW, headerHeight, "F");
 
   // Neon gradient strip
   doc.setFillColor(CYAN);
-  doc.rect(0, 118, pageW / 2, 3, "F");
+  doc.rect(0, headerHeight - 2, pageW / 2, 3, "F");
   doc.setFillColor(FUCHSIA);
-  doc.rect(pageW / 2, 118, pageW / 2, 3, "F");
+  doc.rect(pageW / 2, headerHeight - 2, pageW / 2, 3, "F");
 
-  // Brand
+  // Logo in header, centered at top
+  const logoTop = 18;
+  let logoHeight = 0;
+  let logoWidth = 0;
+
+  try {
+    const logo = await loadLogo(logoUrl);
+    const maxLogoWidth = 180;
+    const maxLogoHeight = 70;
+    const scale = Math.min(maxLogoWidth / logo.width, maxLogoHeight / logo.height, 1);
+    logoWidth = logo.width * scale;
+    logoHeight = logo.height * scale;
+    doc.addImage(logo.dataUrl, "PNG", pageW / 2 - logoWidth / 2, logoTop, logoWidth, logoHeight);
+  } catch (error) {
+    console.warn("No se pudo cargar el logo en el PDF", error);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.setTextColor(LIGHT);
+    const text = BUSINESS.brand.toUpperCase();
+    const textWidth = doc.getTextWidth(text);
+    logoWidth = textWidth;
+    logoHeight = 24;
+    doc.text(text, pageW / 2 - textWidth / 2, logoTop + 16);
+  }
+
+  const textTop = logoTop + logoHeight + 10;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(26);
+  doc.setFontSize(12);
   doc.setTextColor(LIGHT);
-  doc.text(BUSINESS.brand.toUpperCase(), 40, 55);
+  doc.text(BUSINESS.name, 40, textTop);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(MUTED);
-  doc.text(BUSINESS.name, 40, 75);
-  doc.text(`${BUSINESS.role} • ${BUSINESS.location}`, 40, 88);
-  doc.text(`${BUSINESS.email} • ${BUSINESS.phone}`, 40, 101);
+  doc.text(`${BUSINESS.role} • ${BUSINESS.location}`, 40, textTop + 14);
+  doc.text(`${BUSINESS.email} • ${BUSINESS.phone}`, 40, textTop + 28);
 
-  // Document title
+  // Document title and invoice details on the right
   doc.setTextColor(CYAN);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(20);
-  doc.text("FACTURA", pageW - 40, 55, { align: "right" });
+  doc.setFontSize(22);
+  doc.text("REMITO", pageW - 40, textTop, { align: "right" });
 
   doc.setTextColor(LIGHT);
-  doc.setFontSize(11);
-  doc.text(invoice.number, pageW - 40, 75, { align: "right" });
+  doc.setFontSize(12);
+  doc.text(invoice.number, pageW - 40, textTop + 18, { align: "right" });
 
   doc.setTextColor(MUTED);
   doc.setFontSize(9);
-  doc.text(
-    `Emitido: ${new Date(invoice.createdAt).toLocaleDateString("es-AR")}`,
-    pageW - 40,
-    90,
-    { align: "right" },
-  );
-  doc.text(
-    `Entrega: ${invoice.deliveryDate ? new Date(invoice.deliveryDate).toLocaleDateString("es-AR") : "—"}`,
-    pageW - 40,
-    103,
-    { align: "right" },
-  );
+  doc.text(`Emitido: ${formatDateOrRaw(invoice.createdAt)}`, pageW - 40, textTop + 32, {
+    align: "right",
+  });
+  doc.text(`Entrega: ${formatDateOrRaw(invoice.deliveryDate)}`, pageW - 40, textTop + 46, {
+    align: "right",
+  });
+
+  const clientTop = headerHeight + 18;
 
   // Client block
-  let y = 150;
+  let y = clientTop;
   doc.setTextColor(DARK);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
@@ -96,24 +144,25 @@ export async function generateInvoicePdf(invoice: Invoice) {
   if (invoice.client.phone) doc.text(`Tel: ${invoice.client.phone}`, 40, y), (y += 12);
 
   // Payment & currency right side
+  const paymentTop = clientTop;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(DARK);
-  doc.text("PAGO", pageW - 40, 150, { align: "right" });
+  doc.text("PAGO", pageW - 40, paymentTop, { align: "right" });
   doc.setDrawColor(FUCHSIA);
-  doc.line(pageW - 90, 154, pageW - 40, 154);
+  doc.line(pageW - 90, paymentTop + 4, pageW - 40, paymentTop + 4);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor("#222");
-  doc.text(PAYMENT_LABEL[invoice.paymentMethod], pageW - 40, 170, { align: "right" });
+  doc.text(PAYMENT_LABEL[invoice.paymentMethod], pageW - 40, paymentTop + 18, { align: "right" });
   doc.setTextColor("#555");
   doc.setFontSize(9);
-  doc.text(`Moneda: ${invoice.currency} (${CURRENCY_SYMBOL[invoice.currency]})`, pageW - 40, 184, {
+  doc.text(`Moneda: ${invoice.currency} (${CURRENCY_SYMBOL[invoice.currency]})`, pageW - 40, paymentTop + 30, {
     align: "right",
   });
 
   // Items table
-  const tableStartY = Math.max(y + 10, 220);
+  const tableStartY = Math.max(y + 10, paymentTop + 48);
   autoTable(doc, {
     startY: tableStartY,
     head: [["Cant.", "Descripción", "P. Unitario", "Total"]],
@@ -194,7 +243,7 @@ export async function generateInvoicePdf(invoice: Invoice) {
   doc.setFontSize(8);
   doc.setTextColor(MUTED);
   doc.text(
-    `${BUSINESS.brand} • Factura generada con ${BUSINESS.brand}`,
+    `${BUSINESS.brand} • Remito generado con ${BUSINESS.brand}`,
     pageW / 2,
     pageH - 24,
     { align: "center" },

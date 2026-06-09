@@ -4,5 +4,5 @@ export const BUSINESS = {
   location: "Localidad, País",
   phone: "Número de teléfono",
   email: "Correo electrónico",
-  brand: "Rubro o marca",
+  brand: "Manda Remito",
 };
