@@ -141,8 +141,8 @@ function BorradoresPage() {
               <Link to="/nueva">Crear nuevo</Link>
             </Button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto md:overflow-visible">
+            <table className="hidden min-w-full text-sm md:table">
               <thead className="bg-background/40">
                 <tr className="text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="px-4 py-3 text-left">Número</th>
@@ -204,6 +204,50 @@ function BorradoresPage() {
                 ))}
               </tbody>
             </table>
+
+            <div className="divide-y divide-border/40 md:hidden">
+              {filtered.map((draft) => (
+                <div key={draft.id} className="p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-mono text-sm text-color:var(--neon-cyan)">{draft.number}</p>
+                      <p className="mt-1 font-semibold">{draft.client.name || "—"}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(draft.createdAt).toLocaleDateString("es-AR")} · {draft.type === "factura" ? "Remito" : "Recibo"}
+                      </p>
+                    </div>
+                    <p className="text-right font-semibold tabular-nums">
+                      {formatMoney(draft.total, draft.currency)}
+                    </p>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {!isSampleDraft(draft) ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => handleEdit(draft)}
+                        >
+                          Modificar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDelete(draft.id)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          Eliminar
+                        </Button>
+                      </>
+                    ) : (
+                      <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                        Solo ejemplo
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
