@@ -1,8 +1,8 @@
 export const BUSINESS = {
-  name: "Nombre empresa",
-  role: "Role o actividad",
-  location: "Localidad, País",
-  phone: "Número de teléfono",
-  email: "Correo electrónico",
+  name: "LRG Web Design",
+  role: "Web Designer",
+  location: "Merlo, Buenos Aires, Argentina",
+  phone: "+54 911 3296-5583",
+  email: "leorgomez7@gmail.com",
   brand: "Manda Remito",
 };

@@ -758,7 +758,7 @@ const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
               <Button
                 type="button"
                 size="lg"
-                className="w-full bg-gradient-to-r from-[#00E5FF] to-[#FF00D4] text-black hover:opacity-90"
+                className="w-full .bg-gradient-to-r from-[#00E5FF] to-[#FF00D4] text-black hover:opacity-90"
                 onClick={handleGenerateClick}
               >
                 <Send className="mr-2 h-4 w-4" /> Generar remito
@@ -812,7 +812,7 @@ const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
                   </button>
                   <button
                     type="button"
-                    className="rounded-2xl bg-gradient-to-r from-[#00E5FF] to-[#FF00D4] px-4 py-3 text-sm font-semibold text-black transition hover:opacity-90"
+                    className="rounded-2xl .bg-gradient-to-r from-[#00E5FF] to-[#FF00D4] px-4 py-3 text-sm font-semibold text-black transition hover:opacity-90"
                     onClick={handlePasswordSubmit}
                   >
                     Confirmar
